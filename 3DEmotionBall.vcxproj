@@ -144,6 +144,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="data\al_icon_ball.nja" />
+    <ClInclude Include="data\al_icon_halo.nja" />
     <ClInclude Include="data\al_icon_heart.nja" />
     <ClInclude Include="data\al_icon_question.nja" />
     <ClInclude Include="data\al_icon_spike.nja" />

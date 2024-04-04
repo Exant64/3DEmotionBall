@@ -33,6 +33,10 @@
     <ClInclude Include="data\al_icon_question.nja">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="data\al_icon_spike.nja" />
+    <ClInclude Include="data\al_icon_halo.nja">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
