@@ -4,16 +4,7 @@
 #include "FunctionHook.h"
 #include "UsercallFunctionHandler.h"
 
-#include "sa2-mod-loader/libmodutils/ModelInfo.cpp"
-
-// the icon models
-static NJS_OBJECT* pObjBall;
-static NJS_OBJECT* pObjHalo;
-static NJS_OBJECT* pObjSpiky;
-static NJS_OBJECT* pObjQuestion;
-static NJS_OBJECT* pObjExclamation;
-static NJS_OBJECT* pObjSwirl;
-static NJS_OBJECT* pObjHeart;
+#include "models.h"
 
 NJS_TEXNAME AL_3DICON_TEXNAME[2];
 NJS_TEXLIST AL_3DICON_TEXLIST = { AL_3DICON_TEXNAME, 2 };
@@ -192,7 +183,7 @@ static void AL_IconDrawLower(task* tp) {
 		njRotateY(0, cwk->entity.Rotation.y);
 		njScale(0, sx, sy, sx);
 
-		DrawSpecularObject(pObjSpiky);
+		DrawSpecularObject(IconModels.pObjSpiky);
 	}
 	else if (AL_IsHero.Original(tp)) {
 		NJS_POINT3 m1, m2;
@@ -217,13 +208,13 @@ static void AL_IconDrawLower(task* tp) {
 		njRotateX(_nj_current_matrix_ptr_, NJM_DEG_ANG(90));
 		njScale(0, sx, sy, sx);
 
-		DrawSpecularObject(pObjHalo, cwk->ChaoDataBase_ptr->Type == ChaoType_Hero_Chaos);
+		DrawSpecularObject(IconModels.pObjHalo, cwk->ChaoDataBase_ptr->Type == ChaoType_Hero_Chaos);
 	}
 	else {
 		njRotateY(0, cwk->entity.Rotation.y);
 		njScale(0, sx, sy, sx);
 		
-		DrawSpecularObject(pObjBall);
+		DrawSpecularObject(IconModels.pObjBall);
 	}
 
 	njPopMatrixEx();
@@ -254,19 +245,19 @@ static void AL_IconDrawUpper(task* tp) {
 	{
 	case 1: //exclamation mark
 		njTranslate(0, 0, -0.3f, 0);
-		DrawSpecularObject(pObjExclamation);
+		DrawSpecularObject(IconModels.pObjExclamation);
 		break;
 	case 2: //question mark
 		njTranslate(0, 0, -0.3f, 0);
-		DrawSpecularObject(pObjQuestion);
+		DrawSpecularObject(IconModels.pObjQuestion);
 		break;
 	case 3:
 		njTranslate(0, 0, -0.6f, 0);
-		DrawSpecularObject(pObjHeart);
+		DrawSpecularObject(IconModels.pObjHeart);
 		break;
 	case 4:
 		njTranslate(0, 0, -0.6f, 0);
-		DrawSpecularObject(pObjSwirl);
+		DrawSpecularObject(IconModels.pObjSwirl);
 		break;
 	}
 
@@ -304,9 +295,11 @@ static void AL_IconDraw_Hook(task* tp) {
 	LoadConstantAttr();
 	nj_cnk_blend_mode = backupblend;
 
-	// todo!! only draw this if its the fire emoteball or something?
 	auto type = cwk->ChaoDataBase_ptr->Type;
-	if (type == ChaoType_Neutral_Chaos || type == ChaoType_Dark_Chaos || cwk->ChaoDataBase_ptr->BallType == 1) {
+	if (type == ChaoType_Neutral_Chaos || 
+		type == ChaoType_Dark_Chaos || 
+		cwk->ChaoDataBase_ptr->BallType == 1) 
+	{
 		UpperIconDisable = true;
 		AL_IconDrawSub.Original(tp);
 		UpperIconDisable = false;
@@ -342,17 +335,6 @@ extern "C" __declspec(dllexport) void OnInput() {
 	}
 }
 
-static HelperFunctions* pHelper;
-static void LoadModel(NJS_OBJECT** pObj, const char* filename) {
-	char path[MAX_PATH];
-
-	sprintf_s(path, "./resource/gd_PC/IconModels/%s", filename);
-	ModelInfo* pModelInfo = new ModelInfo(pHelper->GetReplaceablePath(path));
-	*pObj = pModelInfo->getmodel();
-
-	// yay memory leak lol
-}
-
 extern "C" __declspec(dllexport) void Init(const char* path, HelperFunctions & helper) {
 	ChaoMain_Constructor_FuncHook.Hook(ChaoMain_Constructor_TexLoadHook);
 	AL_IconDrawSub.Hook(AL_IconDraw_Hook);
@@ -361,14 +343,7 @@ extern "C" __declspec(dllexport) void Init(const char* path, HelperFunctions & h
 	// i wanted to use the usercallfunc trampoline stuff where i can, but i don't know how to apply it to this so i had to writecall
 	WriteCall((void*)0x0053D19A, UpperIconDrawHook);
 
-	pHelper = &helper;
-	LoadModel(&pObjBall, "object_al_icon_ball.sa2mdl");
-	LoadModel(&pObjHalo, "object_al_icon_halo.sa2mdl");
-	LoadModel(&pObjSpiky, "object_al_icon_spiky.sa2mdl");
-	LoadModel(&pObjQuestion, "object_al_icon_question.sa2mdl");
-	LoadModel(&pObjExclamation, "object_al_icon_exclamation.sa2mdl");
-	LoadModel(&pObjSwirl , "object_al_icon_swirl.sa2mdl");
-	LoadModel(&pObjHeart, "object_al_icon_heart.sa2mdl");
+	Model_Init(helper);
 }
 
 extern "C" __declspec (dllexport) ModInfo SA2ModInfo = { ModLoaderVer };
