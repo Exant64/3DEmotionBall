@@ -4,16 +4,16 @@
 #include "FunctionHook.h"
 #include "UsercallFunctionHandler.h"
 
-#include "data/al_icon_ball.nja"
-#include "data/al_icon_spike.nja"
-
-#include "data/al_icon_exclamation.nja"
-#include "data/al_icon_question.nja"
-#include "data/al_icon_swirl.nja"
-#include "data/al_icon_heart.nja"
-#include "data/al_icon_halo.nja"
-
 #include "sa2-mod-loader/libmodutils/ModelInfo.cpp"
+
+// the icon models
+static NJS_OBJECT* pObjBall;
+static NJS_OBJECT* pObjHalo;
+static NJS_OBJECT* pObjSpiky;
+static NJS_OBJECT* pObjQuestion;
+static NJS_OBJECT* pObjExclamation;
+static NJS_OBJECT* pObjSwirl;
+static NJS_OBJECT* pObjHeart;
 
 NJS_TEXNAME AL_3DICON_TEXNAME[2];
 NJS_TEXLIST AL_3DICON_TEXLIST = { AL_3DICON_TEXNAME, 2 };
@@ -22,11 +22,13 @@ DataPointer(int, nj_cnk_blend_mode, 0x025F0264);
 
 FunctionHook<void> ChaoMain_Constructor_FuncHook(0x52AB60);
 FunctionHook<void, task*> AL_IconDrawSub(0x53CEB0);
+FunctionHook<void, char> sub_42CA20(0x42CA20);
 
 UsercallFuncVoid(AL_LoadTex, (const char* pFileName, NJS_TEXLIST* texlist, Uint16 a1), (pFileName, texlist, a1), 0x530280, rEBX, stack4, rAX);
 UsercallFuncVoid(SetChunkTexIndexPrimary, (int index, int a2, int a3), (index, a2, a3), 0x56E3D0, rEAX, rEBX, stack4);
 UsercallFuncVoid(SetChunkTextureID, (NJS_CNK_MODEL* a1, __int16 a2), (a1, a2), 0x0055EA00, rECX, rDI);
 UsercallFuncVoid(njQuaternionEx, (NJS_QUATERNION* pQuat), (pQuat), 0x0784B50, rEAX);
+UsercallFuncVoid(njDrawTexture3DExSetData, (void* a1, int vertexCount), (a1, vertexCount), 0x00781370, rEAX, rECX);
 UsercallFunc(bool, AL_IsDark, (task* tp), (tp), 0x00535390, rEAX, rEAX);
 UsercallFunc(bool, AL_IsHero, (task* tp), (tp), 0x00535360, rEAX, rEAX);
 
@@ -36,8 +38,19 @@ void ChaoMain_Constructor_TexLoadHook() {
 	AL_LoadTex.Original("AL_3DICON", &AL_3DICON_TEXLIST, 0);
 }
 
+static bool AlphaTestEnableHackFlag = false;
+void sub_42CA20_Hook(char a1) {
+	sub_42CA20.Original(a1);
+
+	if (AlphaTestEnableHackFlag) {
+		VoidFunc(AlphaTestEnable, 0x042C0A0);
+		AlphaTestEnable();
+	}
+}
+
 static float MaterialColor[3];
 static float MaterialAlpha;
+static bool UpperIconDisable;
 static bool DisableSpecularRender = false;
 
 static void OffConstantAttr(int _and, int _or) {
@@ -45,16 +58,24 @@ static void OffConstantAttr(int _and, int _or) {
 	nj_constant_attr_or_ &= ~_or ;
 }
 
-static void DrawSpecularObject(NJS_OBJECT* obj) {
+// the heroChaosBlending argument enables usealpha so that DrawObject enables AlphaBlending
+// however, this caused the outside of the halo to "blend" with the inside causing it to look ugly when looked at from the side
+// so shaddatic helped me figure this out, we needed to reorder the mesh using materials, outside of the halo first, inside second
+// then enable alpha testing because that reenables z write, that way the inside wouldnt get drawn from the side => no blending bug
+// however they hardcoded some check to not enable alpha test if the DST blending is one, so we had to hook the function to check for this bool
+// that we set here, so that its forced to be on.
+static void DrawSpecularObject(NJS_OBJECT* obj, bool heroChaosBlending = false) {
 	const int flags = NJD_FST_ENV | NJD_FST_UA | NJD_FST_IL;
 
 	OffConstantAttr(0, flags);
-	if (MaterialAlpha < 1) {
+	if (heroChaosBlending) {
 		OnConstantAttr(0, NJD_FST_UA);
 	}
 	SetMaterial(MaterialAlpha, MaterialColor[0], MaterialColor[1], MaterialColor[2]);
 	SetChunkTextureID(obj->chunkmodel, 0);
+	AlphaTestEnableHackFlag = heroChaosBlending;
 	DrawObject(obj);
+	AlphaTestEnableHackFlag = false;
 
 	OnConstantAttr(0, flags);
 	SetMaterial(1, 1, 1, 1);
@@ -63,7 +84,7 @@ static void DrawSpecularObject(NJS_OBJECT* obj) {
 		DrawObject(obj);
 }
 
-double __fastcall njOuterProduct(NJS_VECTOR* a1, NJS_VECTOR* a2, NJS_VECTOR* a3)
+double __fastcall njOuterProduct(const NJS_VECTOR* a1, const NJS_VECTOR* a2, NJS_VECTOR* a3)
 {
 	double v3; // st7
 	double v4; // st6
@@ -80,7 +101,7 @@ double __fastcall njOuterProduct(NJS_VECTOR* a1, NJS_VECTOR* a2, NJS_VECTOR* a3)
 	return sqrtf(v6);
 }
 
-static void QuaternionLookRotation(NJS_QUATERNION* quaternion, NJS_VECTOR* forward, NJS_VECTOR* up)
+static void QuaternionLookRotation(NJS_QUATERNION* quaternion, NJS_VECTOR* forward, const NJS_VECTOR* up)
 {
 	NJS_VECTOR crossOut;
 	njUnitVector(forward);
@@ -142,26 +163,119 @@ static void QuaternionLookRotation(NJS_QUATERNION* quaternion, NJS_VECTOR* forwa
 
 }
 
-static void AL_IconDraw_Hook(task* tp) {
+#define PUNI_PHASE ((njSin(pIcon->PuniPhase) + 1.0) * 0.08f + 0.92f)
+
+static void AL_IconAdjustHeldPosition(ChaoData1* cwk, NJS_VECTOR& pos) {
+	if ((cwk->entity.Status & 0x8000u) == 0) {
+		pos.y += 0.3f;
+	}
+	else {
+		pos.y -= 0.7f;
+	}
+}
+
+static void AL_IconDrawLower(task* tp) {
 	ChaoData1* cwk = tp->Data1.Chao;
 	AL_ICON* pIcon = (AL_ICON*)&cwk->EmotionBallData;
 
+	const float puni_phase = PUNI_PHASE;
+	const float sx = puni_phase * pIcon->Lower.Scl.x;
+	const float sy = (2.0 - puni_phase) * pIcon->Lower.Scl.y;
+
 	NJS_POINT3 lower_pos = pIcon->Lower.Pos;
-	NJS_POINT3 upper_pos = pIcon->Upper.Pos;
+	AL_IconAdjustHeldPosition(cwk, lower_pos);
 
-	float puni_phase = (njSin(pIcon->PuniPhase) + 1.0) * 0.08f + 0.92f;
-	float sx = puni_phase * pIcon->Lower.Scl.x;
-	float sy = (2.0 - puni_phase) * pIcon->Lower.Scl.y;
+	njPushMatrixEx();
+	njTranslateEx(&lower_pos);
 
-	// i think this is for if the chao is picked up?
-	if ((cwk->entity.Status & 0x8000u) == 0) {
-		lower_pos.y += 0.3f;
-		upper_pos.y += 0.3f;
+	if (AL_IsDark.Original(tp)) {
+		njRotateY(0, cwk->entity.Rotation.y);
+		njScale(0, sx, sy, sx);
+
+		DrawSpecularObject(pObjSpiky);
+	}
+	else if (AL_IsHero.Original(tp)) {
+		NJS_POINT3 m1, m2;
+		m1 = pIcon->Pos;
+		m2 = cwk->HeadTranslationPos;
+
+		// in AL_GetShadowPos, they translate up by 2 before getting the head pos
+		// so we "undo that" by using the up vector (since they used njTranslate while being rotated to the head and all that)
+		m2.x -= pIcon->Up.x * 2;
+		m2.y -= pIcon->Up.y * 2;
+		m2.z -= pIcon->Up.z * 2;
+
+		NJS_QUATERNION quat;
+		const NJS_VECTOR up{ 0,1,0 };
+		NJS_VECTOR forward;
+		forward.x = m2.x - m1.x;
+		forward.y = m2.y - m1.y;
+		forward.z = m2.z - m1.z;
+
+		QuaternionLookRotation(&quat, &forward, &up);
+		njQuaternionEx.Original(&quat);
+		njRotateX(_nj_current_matrix_ptr_, NJM_DEG_ANG(90));
+		njScale(0, sx, sy, sx);
+
+		DrawSpecularObject(pObjHalo, cwk->ChaoDataBase_ptr->Type == ChaoType_Hero_Chaos);
 	}
 	else {
-		lower_pos.y -= 0.7f;
-		upper_pos.y -= 0.7f;
+		njRotateY(0, cwk->entity.Rotation.y);
+		njScale(0, sx, sy, sx);
+		
+		DrawSpecularObject(pObjBall);
 	}
+
+	njPopMatrixEx();
+}
+
+static void AL_IconDrawUpper(task* tp) {
+	ChaoData1* cwk = tp->Data1.Chao;
+	AL_ICON* pIcon = (AL_ICON*)&cwk->EmotionBallData;
+	
+	if (pIcon->Upper.TexNum == 10) {
+		return;
+	}
+
+	const float puni_phase = (njSin(pIcon->PuniPhase) + 1.0) * 0.08f + 0.92f;
+	float sx = puni_phase * pIcon->Upper.Scl.x;
+	float sy = (2.0 - puni_phase) * pIcon->Upper.Scl.y;
+
+	NJS_POINT3 upper_pos = pIcon->Upper.Pos;
+	AL_IconAdjustHeldPosition(cwk, upper_pos);
+
+	njPushMatrixEx();
+	njTranslateEx(&upper_pos);
+	njRotateY(0, cwk->entity.Rotation.y);
+
+	njScale(0, sx, sy, sx);
+
+	switch (pIcon->Upper.TexNum)
+	{
+	case 1: //exclamation mark
+		njTranslate(0, 0, -0.3f, 0);
+		DrawSpecularObject(pObjExclamation);
+		break;
+	case 2: //question mark
+		njTranslate(0, 0, -0.3f, 0);
+		DrawSpecularObject(pObjQuestion);
+		break;
+	case 3:
+		njTranslate(0, 0, -0.6f, 0);
+		DrawSpecularObject(pObjHeart);
+		break;
+	case 4:
+		njTranslate(0, 0, -0.6f, 0);
+		DrawSpecularObject(pObjSwirl);
+		break;
+	}
+
+	njPopMatrixEx();
+}
+
+static void AL_IconDraw_Hook(task* tp) {
+	ChaoData1* cwk = tp->Data1.Chao;
+	AL_ICON* pIcon = (AL_ICON*)&cwk->EmotionBallData;
 
 	// convert the hex color to float color, used above in DrawSpecularObject
 	Uint8* pColor = (Uint8*)&pIcon->Color;
@@ -182,81 +296,8 @@ static void AL_IconDraw_Hook(task* tp) {
 	OnControl3D(NJD_CONTROL_3D_CONSTANT_MATERIAL); // to be able to set the emotion ball color with SetMaterial
 	OnControl3D(NJD_CONTROL_3D_CNK_CONSTANT_ATTR); // to be able to enable/disable env map and use alpha on the model
 
-	njPushMatrixEx();
-	njTranslateEx(&lower_pos);
-
-	if (AL_IsDark.Original(tp)) {
-		njRotateY(0, cwk->entity.Rotation.y);
-		njScale(0, sx, sy, sx);
-
-		DrawSpecularObject(&object_al_icon_spiky);
-	}
-	else if (AL_IsHero.Original(tp)) {
-		NJS_POINT3 m1, m2;
-		m1 = pIcon->Pos;
-		m2 = cwk->HeadTranslationPos;
-		
-		// in AL_GetShadowPos, they translate up by 2 before getting the head pos
-		// so we "undo that" by using the up vector (since they used njTranslate while being rotated to the head and all that)
-		m2.x -= pIcon->Up.x * 2;
-		m2.y -= pIcon->Up.y * 2;
-		m2.z -= pIcon->Up.z * 2;
-
-		NJS_QUATERNION quat;
-		NJS_VECTOR up{ 0,1,0 };
-		NJS_VECTOR forward;
-		forward.x = m2.x - m1.x;
-		forward.y = m2.y - m1.y;
-		forward.z = m2.z - m1.z;
-		
-		QuaternionLookRotation(&quat, &forward, &up);
-		njQuaternionEx.Original(&quat);
-		njRotateX(_nj_current_matrix_ptr_, NJM_DEG_ANG(90));
-		njScale(0, sx, sy, sx);
-
-		DrawSpecularObject(&object_al_icon_halo);
-	}
-	else {
-		njRotateY(0, cwk->entity.Rotation.y);
-		njScale(0, sx, sy, sx);
-
-		DrawSpecularObject(&object_al_icon_ball);
-	}
-
-	njPopMatrixEx();
-	
-	if (pIcon->Upper.TexNum != 10) {
-		float sx = puni_phase * pIcon->Upper.Scl.x;
-		float sy = (2.0 - puni_phase) * pIcon->Upper.Scl.y;
-
-		njPushMatrixEx();
-		njTranslateEx(&upper_pos);
-		njRotateY(0, cwk->entity.Rotation.y);
-
-		njScale(0, sx, sy, sx);
-		
-		switch (pIcon->Upper.TexNum)
-		{
-		case 1: //exclamation mark
-			njTranslate(0, 0, -0.3f, 0);
-			DrawSpecularObject(&object_al_icon_exclamation);
-			break;
-		case 2: //question mark
-			njTranslate(0, 0, -0.3f, 0);
-			DrawSpecularObject(&object_al_icon_question);
-			break;
-		case 3:
-			njTranslate(0, 0, -0.6f, 0);
-			DrawSpecularObject(&object_al_icon_heart);
-			break;
-		case 4:
-			njTranslate(0, 0, -0.6f, 0);
-			DrawSpecularObject(&object_al_icon_swirl);
-			break;
-		}
-
-		njPopMatrixEx();
-	}
+	AL_IconDrawLower(tp);
+	AL_IconDrawUpper(tp);
 
 	// restore states
 	LoadControl3D();
@@ -264,8 +305,35 @@ static void AL_IconDraw_Hook(task* tp) {
 	nj_cnk_blend_mode = backupblend;
 
 	// todo!! only draw this if its the fire emoteball or something?
-	// AL_IconDrawSub.Original(tp);
+	auto type = cwk->ChaoDataBase_ptr->Type;
+	if (type == ChaoType_Neutral_Chaos || type == ChaoType_Dark_Chaos || cwk->ChaoDataBase_ptr->BallType == 1) {
+		UpperIconDisable = true;
+		AL_IconDrawSub.Original(tp);
+		UpperIconDisable = false;
+	}
 }
+
+static void UpperIconDrawCheck(void *a1, int vertexCount) {
+	if (UpperIconDisable) return;
+
+	njDrawTexture3DExSetData.Original(a1, vertexCount);
+}
+
+static void __declspec(naked) UpperIconDrawHook() {
+	__asm
+	{
+		push ecx // int vertexCount
+		push eax // a1
+
+		// Call your __cdecl function here:
+		call UpperIconDrawCheck
+
+		pop eax // a1
+		pop ecx // int vertexCount
+		retn
+	}
+}
+
 
 extern "C" __declspec(dllexport) void OnInput() {
 	// debug
@@ -274,18 +342,33 @@ extern "C" __declspec(dllexport) void OnInput() {
 	}
 }
 
-static void ReplaceEmotionBallModel(NJS_OBJECT** pObjToReplace, const char* path) {
+static HelperFunctions* pHelper;
+static void LoadModel(NJS_OBJECT** pObj, const char* filename) {
+	char path[MAX_PATH];
 
+	sprintf_s(path, "./resource/gd_PC/IconModels/%s", filename);
+	ModelInfo* pModelInfo = new ModelInfo(pHelper->GetReplaceablePath(path));
+	*pObj = pModelInfo->getmodel();
+
+	// yay memory leak lol
 }
 
-extern "C" __declspec(dllexport) void Init(const char* path) {
+extern "C" __declspec(dllexport) void Init(const char* path, HelperFunctions & helper) {
 	ChaoMain_Constructor_FuncHook.Hook(ChaoMain_Constructor_TexLoadHook);
 	AL_IconDrawSub.Hook(AL_IconDraw_Hook);
+	sub_42CA20.Hook(sub_42CA20_Hook);
 
-	// todo: check if this is necessary at all
-	Sint8 display_function_to_use = 0x1C;
-	WriteData((char*)0x0055031B, (char)display_function_to_use);
-	WriteData((char*)0x00550324, (char)display_function_to_use);
+	// i wanted to use the usercallfunc trampoline stuff where i can, but i don't know how to apply it to this so i had to writecall
+	WriteCall((void*)0x0053D19A, UpperIconDrawHook);
+
+	pHelper = &helper;
+	LoadModel(&pObjBall, "object_al_icon_ball.sa2mdl");
+	LoadModel(&pObjHalo, "object_al_icon_halo.sa2mdl");
+	LoadModel(&pObjSpiky, "object_al_icon_spiky.sa2mdl");
+	LoadModel(&pObjQuestion, "object_al_icon_question.sa2mdl");
+	LoadModel(&pObjExclamation, "object_al_icon_exclamation.sa2mdl");
+	LoadModel(&pObjSwirl , "object_al_icon_swirl.sa2mdl");
+	LoadModel(&pObjHeart, "object_al_icon_heart.sa2mdl");
 }
 
 extern "C" __declspec (dllexport) ModInfo SA2ModInfo = { ModLoaderVer };

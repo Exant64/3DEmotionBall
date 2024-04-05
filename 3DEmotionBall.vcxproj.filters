@@ -21,22 +21,6 @@
     <ClInclude Include="pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="data\al_icon_ball.nja">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="data\al_icon_swirl.nja">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="data\al_icon_heart.nja">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="data\al_icon_question.nja">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="data\al_icon_spike.nja" />
-    <ClInclude Include="data\al_icon_halo.nja">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -45,8 +29,5 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="data\al_icon_exclamation.nja" />
   </ItemGroup>
 </Project>

@@ -143,12 +143,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="data\al_icon_ball.nja" />
-    <ClInclude Include="data\al_icon_halo.nja" />
-    <ClInclude Include="data\al_icon_heart.nja" />
-    <ClInclude Include="data\al_icon_question.nja" />
-    <ClInclude Include="data\al_icon_spike.nja" />
-    <ClInclude Include="data\al_icon_swirl.nja" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
@@ -160,9 +154,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="data\al_icon_exclamation.nja" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
