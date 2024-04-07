@@ -20,6 +20,7 @@ UsercallFuncVoid(SetChunkTexIndexPrimary, (int index, int a2, int a3), (index, a
 UsercallFuncVoid(SetChunkTextureID, (NJS_CNK_MODEL* a1, __int16 a2), (a1, a2), 0x0055EA00, rECX, rDI);
 UsercallFuncVoid(njQuaternionEx, (NJS_QUATERNION* pQuat), (pQuat), 0x0784B50, rEAX);
 UsercallFuncVoid(njDrawTexture3DExSetData, (void* a1, int vertexCount), (a1, vertexCount), 0x00781370, rEAX, rECX);
+UsercallFuncVoid(DoLighting, (int a1), (a1), 0x00487060, rEAX);
 UsercallFunc(bool, AL_IsDark, (task* tp), (tp), 0x00535390, rEAX, rEAX);
 UsercallFunc(bool, AL_IsHero, (task* tp), (tp), 0x00535360, rEAX, rEAX);
 
@@ -289,6 +290,8 @@ static void AL_IconDraw_Hook(task* tp) {
 	MaterialColor[0] = pColor[2] / 255.f;
 	MaterialColor[1] = pColor[1] / 255.f;
 	MaterialColor[2] = pColor[0] / 255.f;
+
+	DoLighting(*(char*)0x01DE4664);
 
 	njSetTexture(&AL_3DICON_TEXLIST);
 
