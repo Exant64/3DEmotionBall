@@ -260,6 +260,13 @@ static void AL_IconDrawUpper(task* tp) {
 		DrawSpecularObject(IconModels.pObjQuestion);
 		break;
 	case 3:
+		// hack: the normals dont seem to scale properly with, well scaling
+		// so the env map texture was zoomed out and repeated which is obviously ugly
+		// so i do a pretty nasty fix for it, i scaled the heart up in blender (by 4 iirc?)
+		// applied the scale so the normals get "baked" correctly
+		// and then scale down, ofc this causes the opposite to happen, zoom in rather than zoom out
+		// but its a thousand times better than what was happening before and not noticeable at all
+		njScale(0, 0.25, 0.25, 0.25);
 		njTranslate(0, 0, -0.6f, 0);
 		DrawSpecularObject(IconModels.pObjHeart);
 		break;
