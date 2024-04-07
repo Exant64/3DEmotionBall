@@ -169,6 +169,14 @@ static void AL_IconDrawLower(task* tp) {
 	ChaoData1* cwk = tp->Data1.Chao;
 	AL_ICON* pIcon = (AL_ICON*)&cwk->EmotionBallData;
 
+	auto type = cwk->ChaoDataBase_ptr->Type;
+	if (type == ChaoType_Neutral_Chaos ||
+		type == ChaoType_Dark_Chaos ||
+		cwk->ChaoDataBase_ptr->BallType == 1)
+	{
+		return;
+	}
+
 	const float puni_phase = PUNI_PHASE;
 	const float sx = puni_phase * pIcon->Lower.Scl.x;
 	const float sy = (2.0 - puni_phase) * pIcon->Lower.Scl.y;
