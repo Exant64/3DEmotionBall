@@ -168,6 +168,26 @@ static void AL_IconAdjustHeldPosition(ChaoData1* cwk, NJS_VECTOR& pos) {
 	}
 }
 
+static bool AL_IconCanDrawUpperModel(task* tp) {
+	ChaoData1* cwk = tp->Data1.Chao;
+	auto type = cwk->ChaoDataBase_ptr->Type;
+
+	if (type == ChaoType_Neutral_Chaos && ModConfig.UseNeutralChaosSprite) {
+		return false;
+	}
+
+	if (type == ChaoType_Dark_Chaos && ModConfig.UseDarkChaosSprite) {
+		return false;
+	}
+	
+	// i'm intentionally using > 0 incase any other types are implemented in the future
+	if(cwk->ChaoDataBase_ptr->BallType > 0 && ModConfig.UseEmoteBallTypeSprite) {
+		return false;
+	}
+
+	return true;
+}
+
 static void AL_IconDrawLower(task* tp) {
 	ChaoData1* cwk = tp->Data1.Chao;
 	AL_ICON* pIcon = (AL_ICON*)&cwk->EmotionBallData;
@@ -235,7 +255,8 @@ static void AL_IconDrawUpper(task* tp) {
 	ChaoData1* cwk = tp->Data1.Chao;
 	AL_ICON* pIcon = (AL_ICON*)&cwk->EmotionBallData;
 	
-	if (pIcon->Upper.TexNum == 10) {
+	// upper texnum 10 is "none" basically
+	if (pIcon->Upper.TexNum == 10 || !AL_IconCanDrawUpperModel(tp)) {
 		return;
 	}
 
@@ -320,7 +341,7 @@ static void AL_IconDraw_Hook(task* tp) {
 		type == ChaoType_Dark_Chaos || 
 		cwk->ChaoDataBase_ptr->BallType == 1) 
 	{
-		UpperIconDisable = true;
+		UpperIconDisable = AL_IconCanDrawUpperModel(tp);
 		AL_IconDrawSub.Original(tp);
 		UpperIconDisable = false;
 	}
