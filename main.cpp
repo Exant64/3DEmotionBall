@@ -203,8 +203,17 @@ static void AL_IconDrawUpper(task* tp) {
 	AL_IconAdjustHeldPosition(cwk, upper_pos);
 
 	njPushMatrixEx();
+	
+	if (!ModConfig.RotateExpression) {
 	njTranslateEx(&upper_pos);
 	njRotateY(0, cwk->entity.Rotation.y);
+	}
+	else {
+		// this is done to rotate around the lower emotion ball
+		njTranslate(0, upper_pos.x, pIcon->Lower.Pos.y, upper_pos.z);
+		AL_IconApplyHeadRotation(tp);
+		njTranslate(0, 0, upper_pos.y - pIcon->Lower.Pos.y, 0);
+	}	
 
 	njScale(0, sx, sy, sx);
 
@@ -216,6 +225,17 @@ static void AL_IconDrawUpper(task* tp) {
 		break;
 	case 2: //question mark
 		njTranslate(0, 0, -0.3f, 0);
+
+		// hack, for some reason (probably something that makes sense) with the HeadRotation 
+		// the question mark gets flipped so we flipped it back
+		if (ModConfig.RotateExpression) {
+			njRotateY(0, NJM_DEG_ANG(180));
+		}
+
+		// we apply the same scale hack as the heart (description below), model was scaled and applied by 1.25
+		// (then changed back to the 0.25 scaling)
+		njScale(0, 0.8, 0.8, 0.8);
+
 		DrawSpecularObject(IconModels.pObjQuestion);
 		break;
 	case 3:

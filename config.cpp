@@ -17,7 +17,7 @@ void Config_Init(const char* path) {
 	ModConfig.UseNeutralChaosSprite = config.getBool("General", "UseNeutralChaosSprite", false);
 	ModConfig.UseDarkChaosSprite = config.getBool("General", "UseDarkChaosSprite", false);
 	ModConfig.UseEmoteBallTypeSprite = config.getBool("General", "UseEmoteBallTypeSprite", false);
-	ModConfig.RotateExpression = config.getBool("General", "RotateExpression", false);
+	ModConfig.RotateExpression = config.getBool("General", "RotateExpression", true);
 	ModConfig.PurpleDarkChaosEmotion = config.getBool("Extras", "PurpleDarkChaosEmotion", false);
 	ModConfig.YellowNeutChaosEmotion = config.getBool("Extras", "YellowNeutChaosEmotion", false);
 }
