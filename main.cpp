@@ -15,6 +15,7 @@ DataPointer(int, nj_cnk_blend_mode, 0x025F0264);
 FunctionHook<void> ChaoMain_Constructor_FuncHook(0x52AB60);
 FunctionHook<void, task*> AL_IconDrawSub(0x53CEB0);
 FunctionHook<void, char> sub_42CA20(0x42CA20);
+UsercallFuncVoid(AL_CalcIconColor, (task* tp), (tp), 0x0053B940, rEAX);
 
 UsercallFuncVoid(AL_LoadTex, (const char* pFileName, NJS_TEXLIST* texlist, Uint16 a1), (pFileName, texlist, a1), 0x530280, rEBX, stack4, rAX);
 UsercallFuncVoid(SetChunkTexIndexPrimary, (int index, int a2, int a3), (index, a2, a3), 0x56E3D0, rEAX, rEBX, stack4);
@@ -354,16 +355,42 @@ extern "C" __declspec(dllexport) void OnInput() {
 	}
 }
 
+static void AL_CalcIconColor_Hook(task* tp) {
+	AL_CalcIconColor.Original(tp);
+
+	const int neut_chaos_color = 0xFFFFFF00;
+	const int dark_chaos_color = 0xFFA020F0;
+
+	ChaoData1* cwk = tp->Data1.Chao;
+	AL_ICON* pIcon = (AL_ICON*) & cwk->EmotionBallData;
+
+	switch (cwk->ChaoDataBase_ptr->Type) {
+	case ChaoType_Neutral_Chaos:
+		if (ModConfig.YellowNeutChaosEmotion) {
+			pIcon->Color = neut_chaos_color;
+		}
+
+		break;
+	case ChaoType_Dark_Chaos:
+		if (ModConfig.PurpleDarkChaosEmotion) {
+			pIcon->Color = dark_chaos_color;
+		}
+
+		break;
+	}
+}
+
 extern "C" __declspec(dllexport) void Init(const char* path, HelperFunctions & helper) {
+	Model_Init(helper);
+	Config_Init(path);
+
 	ChaoMain_Constructor_FuncHook.Hook(ChaoMain_Constructor_TexLoadHook);
 	AL_IconDrawSub.Hook(AL_IconDraw_Hook);
-	sub_42CA20.Hook(sub_42CA20_Hook);
+	sub_42CA20.Hook(sub_42CA20_Hook); // alpha hack
+	AL_CalcIconColor.Hook(AL_CalcIconColor_Hook); // "extras" config emotion ball coloring options
 
 	// i wanted to use the usercallfunc trampoline stuff where i can, but i don't know how to apply it to this so i had to writecall
 	WriteCall((void*)0x0053D19A, UpperIconDrawHook);
-
-	Model_Init(helper);
-	Config_Init(path);
 }
 
 extern "C" __declspec (dllexport) ModInfo SA2ModInfo = { ModLoaderVer };
