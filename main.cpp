@@ -111,7 +111,7 @@ static void AL_IconApplyHeadRotation(task *tp) {
 	C_MTXConcat(_nj_current_matrix_ptr_, _nj_current_matrix_ptr_, rotMat);
 	}
 
-#define PUNI_PHASE ((njSin(pIcon->PuniPhase) + 1.0) * 0.08f + 0.92f)
+#define PUNI_PHASE ((njSin(pIcon->PuniPhase) + 1.0f) * 0.08f + 0.92f)
 
 static void AL_IconAdjustHeldPosition(ChaoData1* cwk, NJS_VECTOR& pos) {
 	if ((cwk->entity.Status & 0x8000u) == 0) {
@@ -156,7 +156,7 @@ static void AL_IconDrawLower(task* tp) {
 
 	const float puni_phase = PUNI_PHASE;
 	const float sx = puni_phase * pIcon->Lower.Scl.x;
-	const float sy = (2.0 - puni_phase) * pIcon->Lower.Scl.y;
+	const float sy = (2.0f - puni_phase) * pIcon->Lower.Scl.y;
 
 	NJS_POINT3 lower_pos = pIcon->Lower.Pos;
 	AL_IconAdjustHeldPosition(cwk, lower_pos);
@@ -195,9 +195,9 @@ static void AL_IconDrawUpper(task* tp) {
 		return;
 	}
 
-	const float puni_phase = (njSin(pIcon->PuniPhase) + 1.0) * 0.08f + 0.92f;
+	const float puni_phase = PUNI_PHASE;
 	float sx = puni_phase * pIcon->Upper.Scl.x;
-	float sy = (2.0 - puni_phase) * pIcon->Upper.Scl.y;
+	float sy = (2.0f - puni_phase) * pIcon->Upper.Scl.y;
 
 	NJS_POINT3 upper_pos = pIcon->Upper.Pos;
 	AL_IconAdjustHeldPosition(cwk, upper_pos);
@@ -234,7 +234,7 @@ static void AL_IconDrawUpper(task* tp) {
 
 		// we apply the same scale hack as the heart (description below), model was scaled and applied by 1.25
 		// (then changed back to the 0.25 scaling)
-		njScale(0, 0.8, 0.8, 0.8);
+		njScale(0, 0.8f, 0.8f, 0.8f);
 
 		DrawSpecularObject(IconModels.pObjQuestion);
 		break;
