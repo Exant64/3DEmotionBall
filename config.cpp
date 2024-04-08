@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "SA2ModLoader.h"
+#include "sa2-mod-loader/mod-loader-common/ModLoaderCommon/TextConv.cpp"
 #include "sa2-mod-loader/mod-loader-common/ModLoaderCommon/IniFile.cpp"
 
 #include "config.h"
