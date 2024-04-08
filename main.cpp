@@ -5,6 +5,7 @@
 #include "UsercallFunctionHandler.h"
 
 #include "models.h"
+#include "config.h"
 
 NJS_TEXNAME AL_3DICON_TEXNAME[2];
 NJS_TEXLIST AL_3DICON_TEXLIST = { AL_3DICON_TEXNAME, 2 };
@@ -362,6 +363,7 @@ extern "C" __declspec(dllexport) void Init(const char* path, HelperFunctions & h
 	WriteCall((void*)0x0053D19A, UpperIconDrawHook);
 
 	Model_Init(helper);
+	Config_Init(path);
 }
 
 extern "C" __declspec (dllexport) ModInfo SA2ModInfo = { ModLoaderVer };
