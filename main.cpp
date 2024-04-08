@@ -23,6 +23,8 @@ UsercallFuncVoid(SetChunkTextureID, (NJS_CNK_MODEL* a1, __int16 a2), (a1, a2), 0
 UsercallFuncVoid(njQuaternionEx, (NJS_QUATERNION* pQuat), (pQuat), 0x0784B50, rEAX);
 UsercallFuncVoid(njDrawTexture3DExSetData, (void* a1, int vertexCount), (a1, vertexCount), 0x00781370, rEAX, rECX);
 UsercallFuncVoid(DoLighting, (int a1), (a1), 0x00487060, rEAX);
+UsercallFuncVoid(C_MTXConcat, (float* a1, float* a2, float* a3), (a1, a2, a3), 0x00426E40, rEAX, rEDX, rECX);
+UsercallFunc(double, njOuterProduct, (const NJS_VECTOR* v1, const NJS_VECTOR* v2, NJS_VECTOR* ov), (v1, v2, ov), 0x0077FC90, rst0, rEAX, rECX, rEDX);
 UsercallFunc(bool, AL_IsDark, (task* tp), (tp), 0x00535390, rEAX, rEAX);
 UsercallFunc(bool, AL_IsHero, (task* tp), (tp), 0x00535360, rEAX, rEAX);
 
@@ -78,84 +80,36 @@ static void DrawSpecularObject(NJS_OBJECT* obj, bool heroChaosBlending = false) 
 		DrawObject(obj);
 }
 
-double __fastcall njOuterProduct(const NJS_VECTOR* a1, const NJS_VECTOR* a2, NJS_VECTOR* a3)
-{
-	double v3; // st7
-	double v4; // st6
-	double v5; // st5
-	float v6; // ST00_4
+static void AL_IconApplyHeadRotation(task *tp) {
+	ChaoData1* cwk = tp->Data1.Chao;
+	AL_ICON* pIcon = (AL_ICON*)&cwk->EmotionBallData;
 
-	v3 = a2->z * a1->y - a2->y * a1->z;
-	v4 = a2->x * a1->z - a2->z * a1->x;
-	v5 = a2->y * a1->x - a2->x * a1->y;
-	a3->x = v3;
-	a3->y = v4;
-	a3->z = v5;
-	v6 = v5 * v5 + v4 * v4 + v3 * v3;
-	return sqrtf(v6);
-}
+	float rotMat[12] = {};
 
-static void QuaternionLookRotation(NJS_QUATERNION* quaternion, NJS_VECTOR* forward, const NJS_VECTOR* up)
-{
-	NJS_VECTOR crossOut;
-	njUnitVector(forward);
-	NJS_VECTOR vector = *forward;
-	njOuterProduct(up, &vector, &crossOut);
-	njUnitVector(&crossOut);
-	NJS_VECTOR vector2 = crossOut;
-	NJS_VECTOR vector3;
-	njOuterProduct(&vector, &vector2, &vector3);
-	float m00 = vector2.x;
-	float m01 = vector2.y;
-	float m02 = vector2.z;
-	float m10 = vector3.x;
-	float m11 = vector3.y;
-	float m12 = vector3.z;
-	float m20 = vector.x;
-	float m21 = vector.y;
-	float m22 = vector.z;
+	// calculate the right vector from the head up vector and the head forward vector (technically the mouth's forward vector)
+	NJS_VECTOR up = pIcon->Up;
+	njUnitVector(&up);
+	NJS_VECTOR fwd = cwk->NoseUnitTransPortion; // this is "MouthVec", the forward vector of the mouth model, rn we trust that its the same as the head's
+	njUnitVector(&fwd);
+	NJS_VECTOR right;
+	njOuterProduct(&up, &fwd, &right);
+	njUnitVector(&right);
+	njOuterProduct(&fwd, &right, &up);
+	njUnitVector(&up);
 
+	// we create a rotation matrix from the up-right-forward vectors
+	auto SetColumn = [](float* mat, const NJS_VECTOR& vec, const int col) {
+		mat[col] = vec.x;
+		mat[4 + col] = vec.y;
+		mat[8 + col] = vec.z;
+	};
+	SetColumn(rotMat, right, 0);
+	SetColumn(rotMat, up, 1);
+	SetColumn(rotMat, fwd, 2);
 
-	float num8 = (m00 + m11) + m22;
-	//var quaternion = new Quaternion();
-	if (num8 > 0)
-	{
-		float num = (float)sqrtf(num8 + 1);
-		quaternion->re = num * 0.5f;
-		num = 0.5f / num;
-		quaternion->im[0] = (m12 - m21) * num;
-		quaternion->im[1] = (m20 - m02) * num;
-		quaternion->im[2] = (m01 - m10) * num;
-		return;
+	// and multiply it to the current matrix
+	C_MTXConcat(_nj_current_matrix_ptr_, _nj_current_matrix_ptr_, rotMat);
 	}
-	if ((m00 >= m11) && (m00 >= m22))
-	{
-		float num7 = (float)sqrtf(((1 + m00) - m11) - m22);
-		float num4 = 0.5f / num7;
-		quaternion->im[0] = 0.5f * num7;
-		quaternion->im[1] = (m01 + m10) * num4;
-		quaternion->im[2] = (m02 + m20) * num4;
-		quaternion->re = (m12 - m21) * num4;
-		return;
-	}
-	if (m11 > m22)
-	{
-		float num6 = (float)sqrtf(((1 + m11) - m00) - m22);
-		float num3 = 0.5f / num6;
-		quaternion->im[0] = (m10 + m01) * num3;
-		quaternion->im[1] = 0.5f * num6;
-		quaternion->im[2] = (m21 + m12) * num3;
-		quaternion->re = (m20 - m02) * num3;
-		return;
-	}
-	float num5 = (float)sqrtf(((1 + m22) - m00) - m11);
-	float num2 = 0.5f / num5;
-	quaternion->im[0] = (m20 + m02) * num2;
-	quaternion->im[1] = (m21 + m12) * num2;
-	quaternion->im[2] = 0.5f * num5;
-	quaternion->re = (m01 - m10) * num2;
-
-}
 
 #define PUNI_PHASE ((njSin(pIcon->PuniPhase) + 1.0) * 0.08f + 0.92f)
 
@@ -217,26 +171,7 @@ static void AL_IconDrawLower(task* tp) {
 		DrawSpecularObject(IconModels.pObjSpiky);
 	}
 	else if (AL_IsHero.Original(tp)) {
-		NJS_POINT3 m1, m2;
-		m1 = pIcon->Pos;
-		m2 = cwk->HeadTranslationPos;
-
-		// in AL_GetShadowPos, they translate up by 2 before getting the head pos
-		// so we "undo that" by using the up vector (since they used njTranslate while being rotated to the head and all that)
-		m2.x -= pIcon->Up.x * 2;
-		m2.y -= pIcon->Up.y * 2;
-		m2.z -= pIcon->Up.z * 2;
-
-		NJS_QUATERNION quat;
-		const NJS_VECTOR up{ 0,1,0 };
-		NJS_VECTOR forward;
-		forward.x = m2.x - m1.x;
-		forward.y = m2.y - m1.y;
-		forward.z = m2.z - m1.z;
-
-		QuaternionLookRotation(&quat, &forward, &up);
-		njQuaternionEx.Original(&quat);
-		njRotateX(_nj_current_matrix_ptr_, NJM_DEG_ANG(90));
+		AL_IconApplyHeadRotation(tp);
 		njScale(0, sx, sy, sx);
 
 		DrawSpecularObject(IconModels.pObjHalo, cwk->ChaoDataBase_ptr->Type == ChaoType_Hero_Chaos);
