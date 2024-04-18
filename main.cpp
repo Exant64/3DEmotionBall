@@ -7,6 +7,11 @@
 #include "models.h"
 #include "config.h"
 
+#include "renderfix_api.h"
+
+// renderfix api
+static RFAPI_CORE* rfapi_core;
+
 NJS_TEXNAME AL_3DICON_TEXNAME[2];
 NJS_TEXLIST AL_3DICON_TEXLIST = { AL_3DICON_TEXNAME, 2 };
 
@@ -63,13 +68,20 @@ static void OffConstantAttr(int _and, int _or) {
 static void DrawSpecularObject(NJS_OBJECT* obj, bool heroChaosBlending = false) {
 	const int flags = NJD_FST_ENV | NJD_FST_UA | NJD_FST_IL;
 
+	// "force" backface culling on for our rendering even if its disabled in the renderfix config
+	if (rfapi_core) {
+		rfapi_core->pApiRenderState->SetCullMode(RFRS_CULLMD_NORMAL);
+	}
+
 	OffConstantAttr(0, flags);
 	if (heroChaosBlending) {
 		OnConstantAttr(0, NJD_FST_UA);
 	}
 	SetMaterial(MaterialAlpha, MaterialColor[0], MaterialColor[1], MaterialColor[2]);
 	SetChunkTextureID(obj->chunkmodel, 0);
-	AlphaTestEnableHackFlag = heroChaosBlending;
+	// only apply the alpha test hack if we also have renderfix for the culling
+	// else, we don't apply it so that we get this brighter variant as a fallback
+	AlphaTestEnableHackFlag = rfapi_core && heroChaosBlending;
 	DrawObject(obj);
 	AlphaTestEnableHackFlag = false;
 
@@ -78,6 +90,11 @@ static void DrawSpecularObject(NJS_OBJECT* obj, bool heroChaosBlending = false) 
 	SetChunkTextureID(obj->chunkmodel, 1);
 	if(!DisableSpecularRender)
 		DrawObject(obj);
+
+	// reset back to whatever was in the config for rf
+	if (rfapi_core) {
+		rfapi_core->pApiRenderState->SetCullMode(RFRS_CULLMD_END);
+	}
 }
 
 static void AL_IconApplyHeadRotation(task *tp) {
@@ -109,6 +126,10 @@ static void AL_IconApplyHeadRotation(task *tp) {
 
 	// and multiply it to the current matrix
 	C_MTXConcat(_nj_current_matrix_ptr_, _nj_current_matrix_ptr_, rotMat);
+	// it seems like the calculation flips it on the z axis somewhere
+	// causing it to flip culling which is bad for us
+	// so we flip it back
+	njScale(0, 1, 1, -1);
 	}
 
 #define PUNI_PHASE ((njSin(pIcon->PuniPhase) + 1.0f) * 0.08f + 0.92f)
@@ -323,7 +344,6 @@ static void __declspec(naked) UpperIconDrawHook() {
 	}
 }
 
-
 extern "C" __declspec(dllexport) void OnInput() {
 	// debug
 	if (ControllerPointers[0]->press & Buttons_Y) {
@@ -356,9 +376,17 @@ static void AL_CalcIconColor_Hook(task* tp) {
 	}
 }
 
+static void RenderFixAPI_Init(HelperFunctions& helper) {
+	auto* rf = helper.Mods->find("sa2-render-fix");
+	if (!rf) return;
+
+	rfapi_core = rf->GetDllExport<RFAPI_CORE*>("rfapi_core");
+}
+
 extern "C" __declspec(dllexport) void Init(const char* path, HelperFunctions & helper) {
 	Model_Init(helper);
 	Config_Init(path);
+	RenderFixAPI_Init(helper);
 
 	ChaoMain_Constructor_FuncHook.Hook(ChaoMain_Constructor_TexLoadHook);
 	AL_IconDrawSub.Hook(AL_IconDraw_Hook);

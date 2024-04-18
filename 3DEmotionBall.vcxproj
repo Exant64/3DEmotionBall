@@ -151,6 +151,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="models.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="renderfix_api.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="config.cpp" />
