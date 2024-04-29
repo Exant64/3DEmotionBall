@@ -14,6 +14,9 @@ void Config_Init(const char* path) {
 
 	IniFile config(inipath.c_str());
 
+	ModConfig.LoD = config.getInt("General", "LoD", LoD_Default);
+	ModConfig.Specular = config.getInt("General", "Specular", Specular_Default);
+
 	ModConfig.UseNeutralChaosSprite = config.getBool("General", "UseNeutralChaosSprite", false);
 	ModConfig.UseDarkChaosSprite = config.getBool("General", "UseDarkChaosSprite", false);
 	ModConfig.UseEmoteBallTypeSprite = config.getBool("General", "UseEmoteBallTypeSprite", false);

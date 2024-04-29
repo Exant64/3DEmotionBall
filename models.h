@@ -3,7 +3,9 @@
 
 struct ICON_MODELS {
 	NJS_OBJECT* pObjBall;
-	NJS_OBJECT* pObjHalo;
+	NJS_OBJECT* pObjHaloHigh;
+	NJS_OBJECT* pObjHaloMid;
+	NJS_OBJECT* pObjHaloLow;
 	NJS_OBJECT* pObjSpiky;
 	NJS_OBJECT* pObjQuestion;
 	NJS_OBJECT* pObjExclamation;

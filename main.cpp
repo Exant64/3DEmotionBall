@@ -65,7 +65,7 @@ static void OffConstantAttr(int _and, int _or) {
 // then enable alpha testing because that reenables z write, that way the inside wouldnt get drawn from the side => no blending bug
 // however they hardcoded some check to not enable alpha test if the DST blending is one, so we had to hook the function to check for this bool
 // that we set here, so that its forced to be on.
-static void DrawSpecularObject(NJS_OBJECT* obj, bool heroChaosBlending = false) {
+static void DrawSpecularObject(NJS_OBJECT* obj, bool heroChaosBlending = false, bool specularOn = true) {
 	const int flags = NJD_FST_ENV | NJD_FST_UA | NJD_FST_IL;
 
 	// "force" backface culling on for our rendering even if its disabled in the renderfix config
@@ -85,11 +85,12 @@ static void DrawSpecularObject(NJS_OBJECT* obj, bool heroChaosBlending = false) 
 	DrawObject(obj);
 	AlphaTestEnableHackFlag = false;
 
+	if (specularOn && ModConfig.Specular != Specular_Disabled) {
 	OnConstantAttr(0, flags);
 	SetMaterial(1, 1, 1, 1);
 	SetChunkTextureID(obj->chunkmodel, 1);
-	if(!DisableSpecularRender)
 		DrawObject(obj);
+	}
 
 	// reset back to whatever was in the config for rf
 	if (rfapi_core) {
@@ -195,7 +196,41 @@ static void AL_IconDrawLower(task* tp) {
 		AL_IconApplyHeadRotation(tp);
 		njScale(0, sx, sy, sx);
 
-		DrawSpecularObject(IconModels.pObjHalo, cwk->ChaoDataBase_ptr->Type == ChaoType_Hero_Chaos);
+		ChaoSomeUnknownA* entryWork = (ChaoSomeUnknownA*)tp->UnknownA_ptr;
+		if (entryWork) {
+			const float mediumDistance = 30;
+			const float lowDistance = 150;
+			NJS_OBJECT* pHaloObj;
+			
+			switch (ModConfig.LoD) {
+				case LoD_ForceLow:
+					pHaloObj = IconModels.pObjHaloLow;
+					break;
+				case LoD_ForceMedium:
+					pHaloObj = IconModels.pObjHaloMid;
+					break;
+				case LoD_ForceHigh:
+					pHaloObj = IconModels.pObjHaloHigh;
+					break;
+				default:
+					if (ModConfig.LoD != LoD_MaxMedium && entryWork->playerDistance < mediumDistance) {
+						pHaloObj = IconModels.pObjHaloHigh;
+					}
+					else if (entryWork->playerDistance < lowDistance) {
+						pHaloObj = IconModels.pObjHaloMid;
+					}
+					else {
+						pHaloObj = IconModels.pObjHaloLow;
+					}
+					break;
+			}
+
+			DrawSpecularObject(
+				pHaloObj, 
+				cwk->ChaoDataBase_ptr->Type == ChaoType_Hero_Chaos,
+				ModConfig.LoD != Specular_EnabledNoHalo
+			);
+		}
 	}
 	else {
 		njRotateY(0, cwk->entity.Rotation.y);

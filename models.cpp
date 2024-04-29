@@ -20,7 +20,9 @@ void Model_Init(HelperFunctions& helper) {
 	pHelper = &helper;
 
 	LoadModel(&IconModels.pObjBall, "object_al_icon_ball.sa2mdl");
-	LoadModel(&IconModels.pObjHalo, "object_al_icon_halo.sa2mdl");
+	LoadModel(&IconModels.pObjHaloHigh, "object_al_icon_halo.sa2mdl");
+	LoadModel(&IconModels.pObjHaloMid, "object_al_icon_halo_mid.sa2mdl");
+	LoadModel(&IconModels.pObjHaloLow, "object_al_icon_halo_low.sa2mdl");
 	LoadModel(&IconModels.pObjSpiky, "object_al_icon_spiky.sa2mdl");
 	LoadModel(&IconModels.pObjQuestion, "object_al_icon_question.sa2mdl");
 	LoadModel(&IconModels.pObjExclamation, "object_al_icon_exclamation.sa2mdl");
