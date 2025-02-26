@@ -8,6 +8,7 @@
 #include "config.h"
 
 #include "renderfix_api.h"
+#include "cwe_api.h"
 
 // renderfix api
 static RFAPI_CORE* rfapi_core;
@@ -419,18 +420,32 @@ static void RenderFixAPI_Init(HelperFunctions& helper) {
 	rfapi_core = rf->GetDllExport<RFAPI_CORE*>("rfapi_core");
 }
 
+static void CWE_Register(CWE_REGAPI* cwe_regapi) {
+	cwe_regapi->RegisterChaoTexlistLoad("AL_3DICON", &AL_3DICON_TEXLIST);
+}
+
 extern "C" __declspec(dllexport) void Init(const char* path, HelperFunctions & helper) {
 	Model_Init(helper);
 	Config_Init(path);
 	RenderFixAPI_Init(helper);
 
-	ChaoMain_Constructor_FuncHook.Hook(ChaoMain_Constructor_TexLoadHook);
+	
 	AL_IconDrawSub.Hook(AL_IconDraw_Hook);
 	sub_42CA20.Hook(sub_42CA20_Hook); // alpha hack
 	AL_CalcIconColor.Hook(AL_CalcIconColor_Hook); // "extras" config emotion ball coloring options
 
 	// i wanted to use the usercallfunc trampoline stuff where i can, but i don't know how to apply it to this so i had to writecall
 	WriteCall((void*)0x0053D19A, UpperIconDrawHook);
+
+	HMODULE cwe = GetModuleHandleA("CWE");
+	if (cwe) {
+		void(*RegisterDataFunc)(void*) = (void (*)(void* ptr))GetProcAddress(cwe, "RegisterDataFunc");
+
+		RegisterDataFunc(CWE_Register);
+	}
+	else {
+		ChaoMain_Constructor_FuncHook.Hook(ChaoMain_Constructor_TexLoadHook);
+	}
 }
 
 extern "C" __declspec (dllexport) ModInfo SA2ModInfo = { ModLoaderVer };
