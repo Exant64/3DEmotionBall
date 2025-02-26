@@ -338,6 +338,7 @@ static void AL_IconDraw_Hook(task* tp) {
 	OnControl3D(NJD_CONTROL_3D_CNK_BLEND_MODE); // to make the above variable work
 	OnControl3D(NJD_CONTROL_3D_CONSTANT_MATERIAL); // to be able to set the emotion ball color with SetMaterial
 	OnControl3D(NJD_CONTROL_3D_CNK_CONSTANT_ATTR); // to be able to enable/disable env map and use alpha on the model
+	OffControl3D(NJD_CONTROL_3D_CONSTANT_TEXTURE_MATERIAL); // to be able to enable/disable env map and use alpha on the model
 
 	AL_IconDrawLower(tp);
 	AL_IconDrawUpper(tp);
